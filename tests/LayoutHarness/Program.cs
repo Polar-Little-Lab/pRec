@@ -12,7 +12,21 @@ internal static class Program
         if (args.Length != 1 || !File.Exists(args[0])) throw new Exception("Pass the bundled FFmpeg path");
         Directory.CreateDirectory(Path.Combine(AppContext.BaseDirectory, "tools"));
         File.Copy(args[0], Path.Combine(AppContext.BaseDirectory, "tools", "ffmpeg.exe"), true);
-        var app = new App(); app.InitializeComponent();
+        var app = new App(); app.InitializeComponent(); app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        // Native registration contract: conflicts must not release the active bindings.
+        var host = new Window(); new System.Windows.Interop.WindowInteropHelper(host).EnsureHandle();
+        var otherHost = new Window(); new System.Windows.Interop.WindowInteropHelper(otherHost).EnsureHandle();
+        using (var keys = new PolarRecorder.Services.Hotkeys(host))
+        using (var blocker = new PolarRecorder.Services.Hotkeys(otherHost)) {
+            if (!keys.Configure(6, 0x78, 6, 0x79)) throw new Exception("Initial shortcut registration failed");
+            if (!blocker.Configure(3, 0x76, 3, 0x77)) throw new Exception("Conflict fixture registration failed");
+            if (keys.Configure(5, 0x75, 3, 0x76)) throw new Exception("Conflicting shortcut accepted");
+            if (blocker.Configure(6, 0x78, 3, 0x77)) throw new Exception("Existing shortcut was released after conflict");
+            if (!keys.Configure(6, 0x79, 6, 0x78)) throw new Exception("Shortcut swap failed");
+            if (keys.Configure(6, 0x79, 6, 0x79)) throw new Exception("Duplicate shortcut accepted");
+        }
+        host.Close(); otherHost.Close();
+        Console.WriteLine("PASS: native hotkey registration, conflict rollback, swap and duplicate rejection");
         var window = new MainWindow();
         var root = (Grid)window.Content;
         root.Background = window.Background;
@@ -76,6 +90,13 @@ internal static class Program
                 throw new Exception($"Default size clips controls: overflow {scroll.ScrollableHeight}, viewport {scroll.ViewportHeight}");
             Console.WriteLine($"PASS: WPF layout {size.Width}x{size.Height}, card bottoms aligned, scroll overflow {scroll.ScrollableHeight}");
         }
+        Find<ScrollViewer>("RecordPage").Visibility = Visibility.Collapsed;
+        Find<ScrollViewer>("PreferencesPage").Visibility = Visibility.Visible;
+        root.Measure(new Size(984, 771)); root.Arrange(new Rect(new Size(984, 771))); root.UpdateLayout();
+        Check(Find<ScrollViewer>("PreferencesPage").ScrollableHeight < 1, "Settings must fit default viewport");
+        var settingsBitmap = new RenderTargetBitmap(984, 771, 96, 96, PixelFormats.Pbgra32); settingsBitmap.Render(root);
+        var settingsEncoder = new PngBitmapEncoder(); settingsEncoder.Frames.Add(BitmapFrame.Create(settingsBitmap));
+        using (var settingsFile = File.Create("layout-checks/settings-984.png")) settingsEncoder.Save(settingsFile);
         app.Shutdown();
     }
 }

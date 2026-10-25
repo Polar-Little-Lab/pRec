@@ -3,17 +3,17 @@ Unicode true
 !include "x64.nsh"
 !include "LogicLib.nsh"
 Name "PolarRec"
-OutFile "../../PolarRec-0.4.7-Setup.exe"
+OutFile "../../PolarRec-0.4.8-Setup.exe"
 InstallDir "$LOCALAPPDATA\Programs\PolarRec"
 RequestExecutionLevel user
 SetCompressor /SOLID lzma
 SetCompressorDictSize 32
 SetDatablockOptimize on
-BrandingText "PolarRec 0.4.7"
-VIProductVersion "0.4.7.0"
+BrandingText "PolarRec 0.4.8"
+VIProductVersion "0.4.8.0"
 VIAddVersionKey /LANG=1042 "ProductName" "PolarRec"
 VIAddVersionKey /LANG=1042 "FileDescription" "PolarRec 설치 프로그램"
-VIAddVersionKey /LANG=1042 "FileVersion" "0.4.7"
+VIAddVersionKey /LANG=1042 "FileVersion" "0.4.8"
 VIAddVersionKey /LANG=1042 "LegalCopyright" "PolarRec contributors"
 !define MUI_ICON "../src/PolarRecorder/Assets/PolarRecorder.ico"
 !define MUI_UNICON "../src/PolarRecorder/Assets/PolarRecorder.ico"
@@ -59,7 +59,7 @@ Section "PolarRec (필수)" SEC_APP
   CreateShortcut "$SMPROGRAMS\PolarRec\PolarRec.lnk" "$INSTDIR\PolarRec.exe" "" "$INSTDIR\PolarRec.exe" 0
   CreateShortcut "$SMPROGRAMS\PolarRec\제거.lnk" "$INSTDIR\Uninstall.exe"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\PolarRecorder" "DisplayName" "PolarRec"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\PolarRecorder" "DisplayVersion" "0.4.7"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\PolarRecorder" "DisplayVersion" "0.4.8"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\PolarRecorder" "DisplayIcon" "$INSTDIR\PolarRec.exe"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\PolarRecorder" "UninstallString" '"$INSTDIR\Uninstall.exe"'
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\PolarRecorder" "InstallLocation" "$INSTDIR"

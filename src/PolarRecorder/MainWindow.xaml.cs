@@ -29,13 +29,19 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer noticeTimer = new();
     private string? lastNotice;
     private bool lastNoticeIsError;
+    private int startMod, startFunction = 9, pauseMod, pauseFunction = 10;
+    private static readonly uint[] ModifierValues = { 6, 3, 5 };
+    private static readonly string[] ModifierLabels = { "Ctrl + Shift", "Ctrl + Alt", "Alt + Shift" };
+    private string StartShortcut => $"{ModifierLabels[startMod]} + F{startFunction}";
+    private string PauseShortcut => $"{ModifierLabels[pauseMod]} + F{pauseFunction}";
+    private string RecordingHint => $"{StartShortcut} 저장 · {PauseShortcut} 일시정지";
     private Rectangle? region;
     private CancellationTokenSource? countdown;
     private string? lastVideo;
     private int libraryGeneration;
     private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromMilliseconds(250) };
     private readonly string settingsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PolarRec", "settings.json");
-    private sealed record Settings(string Folder, bool Pc, bool Mic, bool Cursor, bool? DesktopPc = null);
+    private sealed record Settings(string Folder, bool Pc, bool Mic, bool Cursor, bool? DesktopPc = null, int StartMod = 0, int StartFunction = 9, int PauseMod = 0, int PauseFunction = 10);
     private static string EnginePath => Path.Combine(AppContext.BaseDirectory, "tools", "ffmpeg.exe");
     public sealed record RecordingItem(string Path, string Name, string Detail);
     [DllImport("gdi32.dll")] private static extern bool DeleteObject(IntPtr handle);
@@ -54,17 +60,23 @@ public partial class MainWindow : Window
         try {
             if (File.Exists(loadPath)) {
                 var s = JsonSerializer.Deserialize<Settings>(File.ReadAllText(loadPath));
-                if (s != null) { FolderBox.Text = s.Folder; desktopPcAudio = s.DesktopPc ?? true; SystemAudio.IsChecked = desktopPcAudio; MicAudio.IsChecked = s.Mic; CursorOption.IsChecked = s.Cursor; if (loadPath != settingsPath) TryPersist(); }
+                if (s != null) { if (s.StartMod is >= 0 and < 3 && s.PauseMod is >= 0 and < 3 && s.StartFunction is >= 1 and <= 11 && s.PauseFunction is >= 1 and <= 11 && (s.StartMod != s.PauseMod || s.StartFunction != s.PauseFunction)) { startMod = s.StartMod; pauseMod = s.PauseMod; startFunction = s.StartFunction; pauseFunction = s.PauseFunction; } FolderBox.Text = s.Folder; desktopPcAudio = s.DesktopPc ?? true; SystemAudio.IsChecked = desktopPcAudio; MicAudio.IsChecked = s.Mic; CursorOption.IsChecked = s.Cursor; if (loadPath != settingsPath) TryPersist(); }
             }
         } catch (Exception ex) { Notify("설정을 불러오지 못해 기본값을 사용합니다. " + ex.Message); }
+        StartModifiers.ItemsSource = ModifierLabels; PauseModifiers.ItemsSource = ModifierLabels;
+        StartKey.ItemsSource = Enumerable.Range(1, 11).Select(n => $"F{n}").ToArray();
+        PauseKey.ItemsSource = Enumerable.Range(1, 11).Select(n => $"F{n}").ToArray();
+        ShowShortcutSelection(); UpdateShortcutLabels();
         var screens = Screen.AllScreens;
         ScreenList.ItemsSource = screens.Select((s, i) => $"모니터 {i + 1} · {s.Bounds.Width} × {s.Bounds.Height}" + (s.Primary ? " · 기본" : "")).ToArray();
         ScreenList.SelectedIndex = Math.Max(0, Array.FindIndex(screens, s => s.Primary));
         ScreenList.SelectionChanged += (_, _) => { region = null; InvalidatePreview(); UpdateSummary(); SetControls(); };
         SourceInitialized += (_, _) => {
             hotkeys = new Hotkeys(this);
-            bool start = hotkeys.Register(1, 0x78), pause = hotkeys.Register(2, 0x79);
-            if (!start || !pause) Notify("다른 앱이 단축키를 사용 중입니다. 창의 녹화·저장 버튼을 이용하세요.");
+            if (!hotkeys.Configure(ModifierValues[startMod], (uint)(0x6F + startFunction), ModifierValues[pauseMod], (uint)(0x6F + pauseFunction))) {
+                ShortcutStatus.Text = "단축키를 등록하지 못했습니다. 다른 조합을 선택해 적용하세요. 창의 버튼은 계속 사용할 수 있습니다.";
+                ShortcutStatus.Foreground = (Brush)FindResource("ErrorBrush"); Notify(ShortcutStatus.Text, true);
+            }
             hotkeys.Pressed += async id => { if (id == 1) { if (session == null) await StartAsync(); else await SaveAsync(); } else await TogglePauseAsync(); };
         };
         PreviewKeyDown += (_, e) => { if (e.Key == Key.Escape && countdown != null) { countdown.Cancel(); e.Handled = true; } };
@@ -84,10 +96,30 @@ public partial class MainWindow : Window
         FolderLabel.Text = FolderBox.Text;
         UpdateSummary(); ShowPage("record"); SetControls(); timer.Start();
     }
+    private void ShowShortcutSelection()
+    { StartModifiers.SelectedIndex = startMod; StartKey.SelectedIndex = startFunction - 1; PauseModifiers.SelectedIndex = pauseMod; PauseKey.SelectedIndex = pauseFunction - 1; }
+    private void UpdateShortcutLabels()
+    { StartButton.ToolTip = StartShortcut; StopButton.ToolTip = StartShortcut; PauseButton.ToolTip = PauseShortcut; }
+    private void ResetShortcutsClick(object sender, RoutedEventArgs e)
+    { StartModifiers.SelectedIndex = PauseModifiers.SelectedIndex = 0; StartKey.SelectedIndex = 8; PauseKey.SelectedIndex = 9; ShortcutStatus.Text = "기본값을 선택했습니다. 단축키 적용을 눌러 저장하세요."; ShortcutStatus.Foreground = (Brush)FindResource("MutedBrush"); }
+    private void ApplyShortcutsClick(object sender, RoutedEventArgs e)
+    {
+        if (busy || session != null) return;
+        int sm = StartModifiers.SelectedIndex, sf = StartKey.SelectedIndex + 1, pm = PauseModifiers.SelectedIndex, pf = PauseKey.SelectedIndex + 1;
+        void Error(string text) { ShortcutStatus.Text = text; ShortcutStatus.Foreground = (Brush)FindResource("ErrorBrush"); }
+        if (sm < 0 || pm < 0 || sf < 1 || pf < 1) { Error("각 동작의 보조 키와 기능 키를 선택하세요."); return; }
+        if (sm == pm && sf == pf) { Error("두 동작에는 서로 다른 단축키를 지정하세요."); return; }
+        if (hotkeys == null || !hotkeys.Configure(ModifierValues[sm], (uint)(0x6F + sf), ModifierValues[pm], (uint)(0x6F + pf))) {
+            Error("다른 앱이 사용 중이거나 등록할 수 없는 조합입니다. 기존 단축키는 유지됩니다."); return;
+        }
+        startMod = sm; startFunction = sf; pauseMod = pm; pauseFunction = pf; UpdateShortcutLabels();
+        try { PersistSettings(); ShortcutStatus.Text = "단축키를 적용하고 저장했습니다. 다음 실행에도 유지됩니다."; ShortcutStatus.Foreground = (Brush)FindResource("MutedBrush"); }
+        catch (Exception ex) { Error("현재 실행에는 적용했지만 저장하지 못했습니다. 다시 적용해 주세요. " + ex.Message); }
+    }
     private void PersistSettings()
     {
         Directory.CreateDirectory(Path.GetDirectoryName(settingsPath)!);
-        var s = new Settings(FolderBox.Text, desktopPcAudio, MicAudio.IsChecked == true, CursorOption.IsChecked == true, desktopPcAudio);
+        var s = new Settings(FolderBox.Text, desktopPcAudio, MicAudio.IsChecked == true, CursorOption.IsChecked == true, desktopPcAudio, startMod, startFunction, pauseMod, pauseFunction);
         // Replace atomically so a partial write cannot corrupt a previously saved preference file.
         string temp = settingsPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
         File.WriteAllText(temp, JsonSerializer.Serialize(s)); File.Move(temp, settingsPath, true);
@@ -123,7 +155,6 @@ public partial class MainWindow : Window
         PauseButton.Content = session?.IsCapturing == true ? "Ⅱ  일시정지" : "▶  계속 녹화";
         SettingsPanel.IsEnabled = PreferencesEditor.IsEnabled = PreviewButton.IsEnabled = FolderButton.IsEnabled = !busy && session == null;
         SetupBanner.Visibility = engine ? Visibility.Collapsed : Visibility.Visible;
-        EngineStatus.Text = engine ? "녹화 기능이 준비되어 있습니다. 별도 설치나 설정은 필요하지 않습니다." : "앱 구성 파일이 누락되었습니다. 설치 프로그램을 다시 실행해 주세요.";
         LastVideoButton.Visibility = lastVideo != null && session == null && !busy ? Visibility.Visible : Visibility.Collapsed;
         if (session == null && !busy && lastVideo == null) {
             if (!engine) SetState("앱 파일을 확인해 주세요", "설치 프로그램을 다시 실행하면 복구할 수 있습니다.");
@@ -210,7 +241,7 @@ public partial class MainWindow : Window
             session = new RecordingSession(new RecordingOptions(EnginePath, FolderBox.Text, bounds, SystemAudio.IsChecked == true, MicAudio.IsChecked == true, CursorOption.IsChecked == true, WindowMode.IsChecked == true ? SelectedWindow() : null));
             SetState("녹화를 시작하는 중", "잠시만 기다려 주세요."); SetControls();
             WindowState = WindowState.Minimized; await Task.Delay(300); await session.ResumeAsync();
-            SetState("녹화 중", "Ctrl + Shift + F9 저장 · Ctrl + Shift + F10 일시정지", "ErrorBrush");
+            SetState("녹화 중", RecordingHint, "ErrorBrush");
         } catch (OperationCanceledException) { SetState("녹화 준비", "시작을 취소했습니다. 파일은 생성하지 않았습니다."); }
         catch (Exception ex) { string? path = session?.WorkDirectory; session = null; RestoreWindow(); ShowError(ex, path); }
         finally { busy = false; countdown = null; SetControls(); }
@@ -221,7 +252,7 @@ public partial class MainWindow : Window
         busy = true; SetControls();
         try {
             if (session.IsCapturing) { SetState("녹화 구간 정리 중", "영상과 소리를 정리하고 있습니다."); await session.PauseAsync(); RestoreWindow(); SetState("일시정지", "멈춘 시간은 영상에 포함되지 않습니다.", "WarningBrush"); }
-            else { SetState("다시 시작하는 중", "잠시 후 창이 최소화됩니다."); WindowState = WindowState.Minimized; await Task.Delay(300); await session.ResumeAsync(); SetState("녹화 중", "Ctrl + Shift + F9 저장 · Ctrl + Shift + F10 일시정지", "ErrorBrush"); }
+            else { SetState("다시 시작하는 중", "잠시 후 창이 최소화됩니다."); WindowState = WindowState.Minimized; await Task.Delay(300); await session.ResumeAsync(); SetState("녹화 중", RecordingHint, "ErrorBrush"); }
         } catch (Exception ex) { RestoreWindow(); ShowError(ex, session?.WorkDirectory); }
         finally { busy = false; SetControls(); }
     }
