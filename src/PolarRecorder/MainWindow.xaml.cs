@@ -108,8 +108,8 @@ public partial class MainWindow : Window
     }
     private void HideNotice() { noticeTimer.Stop(); NoticePanel.Visibility = Visibility.Collapsed; }
     private void LastNoticeClick(object sender, RoutedEventArgs e) { if (lastNotice != null) Notify(lastNotice, lastNoticeIsError); }
-    private void SetState(string title, string hint, string color = "#245D85")
-    { StatusLabel.Text = title; HintLabel.Text = hint; StateDot.Fill = new SolidColorBrush((Color)ColorConverter.ConvertFromString(color)); }
+    private void SetState(string title, string hint, string color = "ActionBrush")
+    { StatusLabel.Text = title; HintLabel.Text = hint; StateDot.Fill = (Brush)FindResource(color); }
     private void SetControls()
     {
         if (!initialized) return;
@@ -210,7 +210,7 @@ public partial class MainWindow : Window
             session = new RecordingSession(new RecordingOptions(EnginePath, FolderBox.Text, bounds, SystemAudio.IsChecked == true, MicAudio.IsChecked == true, CursorOption.IsChecked == true, WindowMode.IsChecked == true ? SelectedWindow() : null));
             SetState("녹화를 시작하는 중", "잠시만 기다려 주세요."); SetControls();
             WindowState = WindowState.Minimized; await Task.Delay(300); await session.ResumeAsync();
-            SetState("녹화 중", "Ctrl + Shift + F9 저장 · Ctrl + Shift + F10 일시정지", "#B84242");
+            SetState("녹화 중", "Ctrl + Shift + F9 저장 · Ctrl + Shift + F10 일시정지", "ErrorBrush");
         } catch (OperationCanceledException) { SetState("녹화 준비", "시작을 취소했습니다. 파일은 생성하지 않았습니다."); }
         catch (Exception ex) { string? path = session?.WorkDirectory; session = null; RestoreWindow(); ShowError(ex, path); }
         finally { busy = false; countdown = null; SetControls(); }
@@ -220,8 +220,8 @@ public partial class MainWindow : Window
         if (busy || session == null) return;
         busy = true; SetControls();
         try {
-            if (session.IsCapturing) { SetState("녹화 구간 정리 중", "영상과 소리를 정리하고 있습니다."); await session.PauseAsync(); RestoreWindow(); SetState("일시정지", "멈춘 시간은 영상에 포함되지 않습니다.", "#956013"); }
-            else { SetState("다시 시작하는 중", "잠시 후 창이 최소화됩니다."); WindowState = WindowState.Minimized; await Task.Delay(300); await session.ResumeAsync(); SetState("녹화 중", "Ctrl + Shift + F9 저장 · Ctrl + Shift + F10 일시정지", "#B84242"); }
+            if (session.IsCapturing) { SetState("녹화 구간 정리 중", "영상과 소리를 정리하고 있습니다."); await session.PauseAsync(); RestoreWindow(); SetState("일시정지", "멈춘 시간은 영상에 포함되지 않습니다.", "WarningBrush"); }
+            else { SetState("다시 시작하는 중", "잠시 후 창이 최소화됩니다."); WindowState = WindowState.Minimized; await Task.Delay(300); await session.ResumeAsync(); SetState("녹화 중", "Ctrl + Shift + F9 저장 · Ctrl + Shift + F10 일시정지", "ErrorBrush"); }
         } catch (Exception ex) { RestoreWindow(); ShowError(ex, session?.WorkDirectory); }
         finally { busy = false; SetControls(); }
     }
@@ -239,7 +239,7 @@ public partial class MainWindow : Window
         } catch (Exception ex) { RestoreWindow(); ShowError(ex, session?.WorkDirectory); }
         finally { busy = false; SetControls(); }
     }
-    private void ShowError(Exception ex, string? path) { SetState("작업을 완료하지 못했습니다", "안내를 확인한 후 다시 시도하세요.", "#A53939"); Notify(ex.Message + (path == null ? "" : "\n복구용 파일: " + path), isError: true); }
+    private void ShowError(Exception ex, string? path) { SetState("작업을 완료하지 못했습니다", "안내를 확인한 후 다시 시도하세요.", "ErrorBrush"); Notify(ex.Message + (path == null ? "" : "\n복구용 파일: " + path), isError: true); }
     private async void StartClick(object sender, RoutedEventArgs e) => await StartAsync();
     private async void PauseClick(object sender, RoutedEventArgs e) => await TogglePauseAsync();
     private async void StopClick(object sender, RoutedEventArgs e) => await SaveAsync();
