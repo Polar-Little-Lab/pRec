@@ -2,7 +2,7 @@
 
 ![PolarRec](src/PolarRecorder/Assets/PolarRecorder.png)
 
-**0.4.4 · Windows 10 / 11 x64**
+**0.4.5 · Windows 10 / 11 x64**
 
 [설치 및 사용 가이드](docs/USER-GUIDE.md) · [릴리스](https://github.com/Polar-Little-Lab/polarRec/releases) · [웹사이트](https://polar-apps-lab.namsh11251.chatgpt.site/apps/polarrec/)
 
@@ -10,7 +10,7 @@
 
 ## 시작하기
 
-1. `PolarRec-0.4.4-Setup.exe`를 실행하고 설치하세요.
+1. `PolarRec-0.4.5-Setup.exe`를 실행하고 설치하세요.
 2. 바탕화면 또는 시작 메뉴의 **PolarRec**을 실행하세요.
 3. 전체 화면 또는 선택 영역을 정하고 PC 전체 소리·마이크를 켜세요.
 4. **녹화 시작**을 누르세요. 3초 후 창이 최소화됩니다.

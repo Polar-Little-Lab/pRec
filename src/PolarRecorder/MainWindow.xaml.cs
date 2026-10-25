@@ -13,6 +13,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using PolarRecorder.Services;
@@ -24,19 +25,27 @@ public partial class MainWindow : Window
     private RecordingSession? session;
     private Hotkeys? hotkeys;
     private bool busy, initialized;
+    private bool desktopPcAudio = true, windowAudioMode, changingModeAudio;
+    private readonly DispatcherTimer noticeTimer = new();
+    private string? lastNotice;
+    private bool lastNoticeIsError;
     private Rectangle? region;
     private CancellationTokenSource? countdown;
     private string? lastVideo;
     private int libraryGeneration;
     private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromMilliseconds(250) };
     private readonly string settingsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PolarRec", "settings.json");
-    private sealed record Settings(string Folder, bool Pc, bool Mic, bool Cursor);
+    private sealed record Settings(string Folder, bool Pc, bool Mic, bool Cursor, bool? DesktopPc = null);
     private static string EnginePath => Path.Combine(AppContext.BaseDirectory, "tools", "ffmpeg.exe");
     public sealed record RecordingItem(string Path, string Name, string Detail);
     [DllImport("gdi32.dll")] private static extern bool DeleteObject(IntPtr handle);
     public MainWindow()
     {
         InitializeComponent();
+        noticeTimer.Tick += (_, _) => {
+            if (!NoticePanel.IsMouseOver && !NoticePanel.IsKeyboardFocusWithin) HideNotice();
+        };
+        Closed += (_, _) => noticeTimer.Stop();
         string videos = Environment.GetFolderPath(Environment.SpecialFolder.MyVideos);
         string legacyFolder = Path.Combine(videos, "Polar Recorder");
         FolderBox.Text = Directory.Exists(legacyFolder) ? legacyFolder : Path.Combine(videos, "PolarRec");
@@ -45,7 +54,7 @@ public partial class MainWindow : Window
         try {
             if (File.Exists(loadPath)) {
                 var s = JsonSerializer.Deserialize<Settings>(File.ReadAllText(loadPath));
-                if (s != null) { FolderBox.Text = s.Folder; SystemAudio.IsChecked = s.Pc; MicAudio.IsChecked = s.Mic; CursorOption.IsChecked = s.Cursor; if (loadPath != settingsPath) TryPersist(); }
+                if (s != null) { FolderBox.Text = s.Folder; desktopPcAudio = s.DesktopPc ?? true; SystemAudio.IsChecked = desktopPcAudio; MicAudio.IsChecked = s.Mic; CursorOption.IsChecked = s.Cursor; if (loadPath != settingsPath) TryPersist(); }
             }
         } catch (Exception ex) { Notify("설정을 불러오지 못해 기본값을 사용합니다. " + ex.Message); }
         var screens = Screen.AllScreens;
@@ -78,13 +87,27 @@ public partial class MainWindow : Window
     private void PersistSettings()
     {
         Directory.CreateDirectory(Path.GetDirectoryName(settingsPath)!);
-        var s = new Settings(FolderBox.Text, SystemAudio.IsChecked == true, MicAudio.IsChecked == true, CursorOption.IsChecked == true);
+        var s = new Settings(FolderBox.Text, desktopPcAudio, MicAudio.IsChecked == true, CursorOption.IsChecked == true, desktopPcAudio);
         // Replace atomically so a partial write cannot corrupt a previously saved preference file.
         string temp = settingsPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
         File.WriteAllText(temp, JsonSerializer.Serialize(s)); File.Move(temp, settingsPath, true);
     }
     private void TryPersist() { try { PersistSettings(); } catch (Exception ex) { Notify("설정을 저장하지 못했습니다. " + ex.Message); } }
-    private void Notify(string message) { NoticeLabel.Text = message; NoticePanel.Visibility = Visibility.Visible; }
+    private void Notify(string message, bool isError = false)
+    {
+        noticeTimer.Stop(); lastNotice = message; lastNoticeIsError = isError;
+        NoticeLabel.Text = message;
+        NoticePanel.Background = (Brush)FindResource(isError ? "SurfaceBrush" : "IceBrush");
+        NoticePanel.BorderBrush = (Brush)FindResource(isError ? "ErrorBrush" : "AccentBrush");
+        NoticeLabel.Foreground = (Brush)FindResource(isError ? "ErrorBrush" : "InkBrush");
+        LastNoticeButton.Visibility = Visibility.Visible;
+        NoticePanel.Visibility = Visibility.Visible;
+        NoticePanel.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(180)));
+        NoticeOffset.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(-16, 0, TimeSpan.FromMilliseconds(180)) { EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut } });
+        noticeTimer.Interval = TimeSpan.FromSeconds(isError ? 12 : 4); noticeTimer.Start();
+    }
+    private void HideNotice() { noticeTimer.Stop(); NoticePanel.Visibility = Visibility.Collapsed; }
+    private void LastNoticeClick(object sender, RoutedEventArgs e) { if (lastNotice != null) Notify(lastNotice, lastNoticeIsError); }
     private void SetState(string title, string hint, string color = "#245D85")
     { StatusLabel.Text = title; HintLabel.Text = hint; StateDot.Fill = new SolidColorBrush((Color)ColorConverter.ConvertFromString(color)); }
     private void SetControls()
@@ -138,10 +161,18 @@ public partial class MainWindow : Window
     private void InvalidatePreview() { if (!initialized) return; PreviewImage.Source = null; PreviewPlaceholder.Visibility = Visibility.Visible; }
     private void CaptureModeChanged(object sender, RoutedEventArgs e) {
         if (!initialized) return;
-        if (WindowMode.IsChecked == true) {
-            SystemAudio.IsChecked = false;
-            RefreshWindows();
-            Notify("창 영상만 선택됩니다. PC 전체 소리는 기본으로 껐습니다. 필요하면 직접 켜세요. 최소화 시 일시정지하며 창을 복원한 뒤 계속 녹화할 수 있습니다.");
+        bool enteringWindow = WindowMode.IsChecked == true;
+        if (enteringWindow != windowAudioMode) {
+            changingModeAudio = true;
+            try {
+                if (enteringWindow) desktopPcAudio = SystemAudio.IsChecked == true;
+                windowAudioMode = enteringWindow;
+                SystemAudio.IsChecked = enteringWindow ? false : desktopPcAudio;
+            } finally { changingModeAudio = false; }
+            if (enteringWindow) {
+                Notify("창 녹화에서는 PC 소리를 기본으로 끕니다. 필요하면 직접 켤 수 있습니다.");
+                RefreshWindows();
+            } else Notify(desktopPcAudio ? "화면 녹화로 전환해 PC 소리를 다시 켰습니다." : "화면 녹화로 전환했습니다. 직접 꺼둔 PC 소리 설정을 유지합니다.");
         }
         InvalidatePreview(); UpdateSummary(); SetControls();
     }
@@ -155,7 +186,11 @@ public partial class MainWindow : Window
     }
     private void RefreshWindowsClick(object sender, RoutedEventArgs e) { if (!busy && session == null) { RefreshWindows(); UpdateSummary(); SetControls(); } }
     private void WindowSelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e) { if (initialized) { InvalidatePreview(); UpdateSummary(); SetControls(); } }
-    private void OptionChanged(object sender, RoutedEventArgs e) { if (initialized) { UpdateSummary(); TryPersist(); } }
+    private void OptionChanged(object sender, RoutedEventArgs e) {
+        if (!initialized || changingModeAudio) return;
+        if (ReferenceEquals(sender, SystemAudio) && !windowAudioMode) desktopPcAudio = SystemAudio.IsChecked == true;
+        UpdateSummary(); TryPersist();
+    }
     private void RestoreWindow() { Show(); WindowState = WindowState.Normal; Activate(); }
     private async Task StartAsync()
     {
@@ -166,7 +201,7 @@ public partial class MainWindow : Window
             Rectangle bounds = SelectedBounds();
             Directory.CreateDirectory(FolderBox.Text);
             string probe = Path.Combine(FolderBox.Text, ".polar-write-" + Guid.NewGuid().ToString("N")); File.WriteAllText(probe, ""); File.Delete(probe);
-            PersistSettings(); NoticePanel.Visibility = Visibility.Collapsed; ClockLabel.Text = "00:00:00"; ShowPage("record");
+            PersistSettings(); HideNotice(); ClockLabel.Text = "00:00:00"; ShowPage("record");
             using (var cts = new CancellationTokenSource()) {
                 countdown = cts; SetControls();
                 try { for (int n = 3; n > 0; n--) { SetState($"{n}초 후 시작", "준비가 안 됐다면 Esc 또는 시작 취소를 누르세요."); await Task.Delay(1000, cts.Token); } }
@@ -204,12 +239,12 @@ public partial class MainWindow : Window
         } catch (Exception ex) { RestoreWindow(); ShowError(ex, session?.WorkDirectory); }
         finally { busy = false; SetControls(); }
     }
-    private void ShowError(Exception ex, string? path) { SetState("작업을 완료하지 못했습니다", "안내를 확인한 후 다시 시도하세요.", "#A53939"); Notify(ex.Message + (path == null ? "" : "\n복구용 파일: " + path)); }
+    private void ShowError(Exception ex, string? path) { SetState("작업을 완료하지 못했습니다", "안내를 확인한 후 다시 시도하세요.", "#A53939"); Notify(ex.Message + (path == null ? "" : "\n복구용 파일: " + path), isError: true); }
     private async void StartClick(object sender, RoutedEventArgs e) => await StartAsync();
     private async void PauseClick(object sender, RoutedEventArgs e) => await TogglePauseAsync();
     private async void StopClick(object sender, RoutedEventArgs e) => await SaveAsync();
     private void CancelStartClick(object sender, RoutedEventArgs e) => countdown?.Cancel();
-    private void DismissNotice(object sender, RoutedEventArgs e) => NoticePanel.Visibility = Visibility.Collapsed;
+    private void DismissNotice(object sender, RoutedEventArgs e) => HideNotice();
     private void SelectRegionClick(object sender, RoutedEventArgs e)
     {
         if (busy || session != null) return;
