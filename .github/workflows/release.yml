@@ -27,7 +27,13 @@ jobs:
         shell: pwsh
         run: |
           dotnet run --project tests/WindowCaptureSmoke -c Release -- ./dist/PolarRec/tools/ffmpeg.exe
+          if ($LASTEXITCODE -eq 77) {
+            '::notice::Native capture test skipped: runner cannot create a D3D11 device. This is not a passing capture test.' | Write-Host
+            'Native window isolation: NOT VERIFIED (no D3D11 device on runner).' >> $env:GITHUB_STEP_SUMMARY
+            exit 0
+          }
           if ($LASTEXITCODE -ne 0) { throw 'Native window capture isolation check failed' }
+          'Native window isolation: PASS.' >> $env:GITHUB_STEP_SUMMARY
       - name: Prepare installer payload
         shell: pwsh
         run: |

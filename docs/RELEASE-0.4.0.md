@@ -12,3 +12,5 @@
 [설치·사용 가이드](https://github.com/Polar-Little-Lab/polarRec/blob/main/docs/USER-GUIDE.md)
 
 사전 공개 버전입니다. 일반 Windows PC에서 오디오 동기화·장시간 녹화·다양한 앱 조합 검증은 추가로 필요합니다.
+
+검증: Windows 빌드·창 핸들 지정 회귀 검사 통과. GitHub 실행 환경의 D3D11 장치 부재로 실제 창 격리 시험은 생략됐습니다. 캡처 성공으로 간주하지 않습니다.

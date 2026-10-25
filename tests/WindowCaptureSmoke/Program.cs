@@ -20,6 +20,10 @@ internal static class Program
                 try { await p.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(25)); }
                 catch { p.Kill(true); await p.WaitForExitAsync(); throw; }
                 string error = await logs; File.WriteAllText("window-capture-smoke.log",error);
+                if (p.ExitCode != 0 && error.Contains("Failed to create D3D11VA device.")) {
+                    Console.WriteLine("SKIP: runner has no usable D3D11 capture device; window isolation remains unverified.");
+                    Environment.ExitCode = 77; return;
+                }
                 if (p.ExitCode != 0) throw new Exception(error);
                 using var image = new Bitmap(output);
                 var pixel = image.GetPixel(image.Width/2,image.Height/2);
