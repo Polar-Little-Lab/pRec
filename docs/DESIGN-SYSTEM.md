@@ -1,7 +1,7 @@
-# PolarRec · Polar UI Frost 기준 적용
+# pRec · Polar UI Frost 기준 적용
 
 공통 기준: https://github.com/Polar-Little-Lab/design-system — 0.1.0의 tokens/frost.json.
-적용 앱: PolarRec 0.4.7. 색상·간격·타이포그래피 등 시각 기준만 공유하며 WPF 화면 구성과 동작은 제품에서 관리합니다.
+적용 앱: pRec 0.4.7. 색상·간격·타이포그래피 등 시각 기준만 공유하며 WPF 화면 구성과 동작은 제품에서 관리합니다.
 
 ## 시각 기준
 - 배경 #F3F8FC, 표면 #FFFFFF, 보조 표면 #E7EFF6.

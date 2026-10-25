@@ -1,8 +1,8 @@
-# PolarRec · 폴라렉
+# pRec
 
-![PolarRec](src/PolarRecorder/Assets/PolarRecorder.png)
+![pRec](src/PolarRecorder/Assets/PolarRecorder.png)
 
-**0.4.9 · Windows 10 / 11 x64**
+**0.4.10 · Windows 10 / 11 x64**
 
 [설치 및 사용 가이드](docs/USER-GUIDE.md) · [릴리스](https://github.com/Polar-Little-Lab/polarRec/releases) · [웹사이트](https://polar-apps-lab.namsh11251.chatgpt.site/apps/polarrec/)
 
@@ -10,8 +10,8 @@
 
 ## 시작하기
 
-1. `PolarRec-0.4.9-Setup.exe`를 실행하고 설치하세요.
-2. 바탕화면 또는 시작 메뉴의 **PolarRec**을 실행하세요.
+1. `pRec-0.4.10-Setup.exe`를 실행하고 설치하세요.
+2. 바탕화면 또는 시작 메뉴의 **pRec**을 실행하세요.
 3. 전체 화면 또는 선택 영역을 정하고 PC 전체 소리·마이크를 켜세요.
 4. **녹화 시작**을 누르세요. 3초 후 창이 최소화됩니다.
 5. 저장하려면 **Ctrl + Shift + F9**, 일시정지/계속은 **Ctrl + Shift + F10**을 누르세요.
@@ -53,7 +53,7 @@ Windows x64 Release 빌드와 패키지 무결성 확인을 완료했습니다.
 
 ## 개발자용
 
-.NET 8 SDK 설치 후 `scripts/build.ps1`을 실행하면 엔진을 포함한 `dist/PolarRec`를 만듭니다.
+.NET 8 SDK 설치 후 `scripts/build.ps1`을 실행하면 엔진을 포함한 `dist/pRec`를 만듭니다.
 소스만 있는 경우 스크립트가 검토된 배포 파일을 다운로드하고 SHA-256을 확인합니다. 배포처 파일이 변경되면 빌드를 중단하므로 버전과 해시를 검토해 갱신해야 합니다.
 일반 사용자는 이 스크립트를 실행할 필요가 없습니다.
 

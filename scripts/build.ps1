@@ -28,4 +28,4 @@ New-Item -ItemType Directory -Force (Join-Path $out 'tools') | Out-Null
 Copy-Item (Join-Path $bundle '*') (Join-Path $out 'tools') -Recurse -Force
 Copy-Item (Join-Path $root 'README.md') $out
 Copy-Item (Join-Path $root 'licenses') $out -Recurse -Force
-Write-Host "Ready: $out\PolarRec.exe (engine included)"
+Write-Host "Ready: $out\pRec.exe (engine included)"

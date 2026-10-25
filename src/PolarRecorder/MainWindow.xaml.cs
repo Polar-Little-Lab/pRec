@@ -54,7 +54,7 @@ public partial class MainWindow : Window
         Closed += (_, _) => noticeTimer.Stop();
         string videos = Environment.GetFolderPath(Environment.SpecialFolder.MyVideos);
         string legacyFolder = Path.Combine(videos, "Polar Recorder");
-        FolderBox.Text = Directory.Exists(legacyFolder) ? legacyFolder : Path.Combine(videos, "PolarRec");
+        FolderBox.Text = Directory.Exists(legacyFolder) ? legacyFolder : Directory.Exists(Path.Combine(videos, "PolarRec")) ? Path.Combine(videos, "PolarRec") : Path.Combine(videos, "pRec");
         string legacySettings = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PolarRecorder", "settings.json");
         string loadPath = File.Exists(settingsPath) ? settingsPath : legacySettings;
         try {
