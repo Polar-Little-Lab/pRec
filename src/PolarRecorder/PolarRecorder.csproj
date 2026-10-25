@@ -6,7 +6,7 @@
     <!-- WPF owns the entry point; per-monitor DPI is intentionally declared in app.manifest. -->
     <NoWarn>$(NoWarn);WFAC010</NoWarn>
     <ApplicationIcon>Assets/PolarRecorder.ico</ApplicationIcon>
-    <AssemblyName>PolarRec</AssemblyName><RootNamespace>PolarRecorder</RootNamespace><Product>PolarRec · 폴라렉</Product><Version>0.4.8</Version>
+    <AssemblyName>PolarRec</AssemblyName><RootNamespace>PolarRecorder</RootNamespace><Product>PolarRec · 폴라렉</Product><Version>0.4.9</Version>
   </PropertyGroup>
   <ItemGroup><PackageReference Include="NAudio" Version="2.2.1" /></ItemGroup>
   <ItemGroup><Resource Include="Assets/PolarRecorder.ico"/><Resource Include="Assets/PolarRecorder.png"/></ItemGroup>

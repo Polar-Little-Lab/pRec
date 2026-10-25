@@ -25,7 +25,7 @@ public partial class MainWindow : Window
     private RecordingSession? session;
     private Hotkeys? hotkeys;
     private bool busy, initialized;
-    private bool desktopPcAudio = true, windowAudioMode, changingModeAudio;
+    private bool desktopPcAudio = true, windowAudioMode, changingModeAudio, refreshingWindows;
     private readonly DispatcherTimer noticeTimer = new();
     private string? lastNotice;
     private bool lastNoticeIsError;
@@ -158,7 +158,7 @@ public partial class MainWindow : Window
         LastVideoButton.Visibility = lastVideo != null && session == null && !busy ? Visibility.Visible : Visibility.Collapsed;
         if (session == null && !busy && lastVideo == null) {
             if (!engine) SetState("앱 파일을 확인해 주세요", "설치 프로그램을 다시 실행하면 복구할 수 있습니다.");
-            else if (!validArea) SetState(WindowMode.IsChecked == true ? "녹화할 창을 선택하세요" : "영역을 지정해 주세요", WindowMode.IsChecked == true ? "창을 열고 창 목록 새로고침을 누르세요." : "녹화할 부분을 마우스로 드래그하세요.");
+            else if (!validArea) SetState(WindowMode.IsChecked == true ? "녹화할 창을 선택하세요" : "영역을 지정해 주세요", WindowMode.IsChecked == true ? "창을 열고 목록에서 선택하세요." : "녹화할 부분을 마우스로 드래그하세요.");
             else if (StatusLabel.Text != "작업을 완료하지 못했습니다") SetState("녹화 준비", "3초 준비 후 녹화를 시작합니다.");
         }
     }
@@ -211,12 +211,17 @@ public partial class MainWindow : Window
     private void RefreshWindows() {
         var previous = WindowList.SelectedItem as WindowTarget;
         var items = WindowTargets.List();
-        WindowList.ItemsSource = items;
-        WindowList.SelectedItem = items.FirstOrDefault(x => x.Handle == previous?.Handle && x.ProcessStarted == previous.ProcessStarted);
-        if (items.Count == 0) Notify("선택 가능한 창이 없습니다. 앱 또는 브라우저 창을 열고 최소화를 해제한 뒤 새로고침하세요.");
+        var selected = previous == null ? null : items.FirstOrDefault(x => x.Handle == previous.Handle && x.ProcessId == previous.ProcessId && x.ProcessStarted == previous.ProcessStarted);
+        refreshingWindows = true;
+        try { WindowList.ItemsSource = items; WindowList.SelectedItem = selected; }
+        finally { refreshingWindows = false; }
+        // Opening the list must not erase a preview of the same window.
+        if (previous != null && selected == null) InvalidatePreview();
+        UpdateSummary(); SetControls();
+        if (items.Count == 0) Notify("선택 가능한 창이 없습니다. 앱 또는 브라우저 창을 열고 최소화를 해제한 뒤 목록을 다시 펼쳐 주세요.");
     }
-    private void RefreshWindowsClick(object sender, RoutedEventArgs e) { if (!busy && session == null) { RefreshWindows(); UpdateSummary(); SetControls(); } }
-    private void WindowSelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e) { if (initialized) { InvalidatePreview(); UpdateSummary(); SetControls(); } }
+    private void WindowListOpened(object? sender, EventArgs e) { if (initialized && !busy && session == null) RefreshWindows(); }
+    private void WindowSelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e) { if (initialized && !refreshingWindows) { InvalidatePreview(); UpdateSummary(); SetControls(); } }
     private void OptionChanged(object sender, RoutedEventArgs e) {
         if (!initialized || changingModeAudio) return;
         if (ReferenceEquals(sender, SystemAudio) && !windowAudioMode) desktopPcAudio = SystemAudio.IsChecked == true;
