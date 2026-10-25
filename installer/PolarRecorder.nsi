@@ -44,7 +44,7 @@ Section "PolarRec (필수)" SEC_APP
   SectionIn RO
   SetOutPath "$INSTDIR"
   SetOverwrite on
-  File /r "../app-polarrec/*"
+  File /r "..\app-polarrec\*"
   Delete "$INSTDIR\PolarRecorder.exe"
   Delete "$INSTDIR\PolarRecorder.dll"
   Delete "$INSTDIR\PolarRecorder.deps.json"

@@ -37,7 +37,9 @@ jobs:
         run: |
           choco install nsis --no-progress -y
           if ($LASTEXITCODE -ne 0) { throw 'NSIS installation failed' }
-          & "${env:ProgramFiles(x86)}\NSIS\makensis.exe" installer/PolarRecorder.nsi
+          Push-Location installer
+          & "${env:ProgramFiles(x86)}\NSIS\makensis.exe" /INPUTCHARSET UTF8 PolarRecorder.nsi
+          Pop-Location
           if ($LASTEXITCODE -ne 0) { throw 'Installer compilation failed' }
           Move-Item ../PolarRec-0.3.3-Setup.exe ./PolarRec-0.3.3-Setup.exe
           $hash = (Get-FileHash PolarRec-0.3.3-Setup.exe -Algorithm SHA256).Hash.ToLowerInvariant()
