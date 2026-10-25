@@ -131,7 +131,7 @@ public partial class MainWindow : Window
         MonitorLabel.Visibility = ScreenList.Visibility = window ? Visibility.Collapsed : Visibility.Visible;
         SelectRegionButton.Visibility = custom ? Visibility.Visible : Visibility.Collapsed;
         SelectRegionButton.Content = region.HasValue ? "영역 다시 지정" : "영역 지정하기";
-        RegionLabel.Text = window ? "선택한 창에만 연결됩니다. 다른 창이나 전체 화면으로 자동 전환하지 않습니다." : custom ? (region.HasValue ? $"{region.Value.Width} × {region.Value.Height} px · 선택됨" : "영역 지정하기를 눌러 드래그하세요.") : "선택한 모니터 전체를 녹화합니다.";
+        RegionLabel.Text = window ? "탭을 바꾸면 바뀐 탭이 녹화됩니다. 최소화하면 일시정지합니다." : custom ? (region.HasValue ? $"{region.Value.Width} × {region.Value.Height} px · 선택됨" : "영역 지정하기를 눌러 드래그하세요.") : "선택한 모니터 전체를 녹화합니다.";
         try { var b = SelectedBounds(); CaptureSummary.Text = $"{(window ? "선택한 창" : custom ? "선택 영역" : "전체 화면")} · {b.Width} × {b.Height}"; } catch { CaptureSummary.Text = window ? "아직 창을 선택하지 않았어요" : "아직 영역을 지정하지 않았어요"; }
         AudioSummary.Text = $"PC 전체 소리 {(SystemAudio.IsChecked == true ? "켜짐" : "꺼짐")} · 마이크 {(MicAudio.IsChecked == true ? "켜짐" : "꺼짐")}";
     }
