@@ -25,3 +25,14 @@ string message = WindowTargetPolicy.CaptureFailure(new IOException("Stream mappi
 Check(message.Contains("0x80070057") && message.Contains("전체 화면") && !message.Contains("Stream mapping"), "Actionable error, not raw FFmpeg output");
 Check(WindowTargetPolicy.CaptureFailure(new TimeoutException()).Contains("미리보기"), "Timeout guidance");
 Console.WriteLine("PASS: shell filtering, normal Explorer/browser retention, friendly capture errors");
+
+Check(WindowTargetPolicy.IsKnownOverlay("NVIDIA Share", "NVIDIA GeForce Overlay"), "Reported NVIDIA overlay must be excluded");
+Check(WindowTargetPolicy.IsKnownOverlay("nvidia share", "nvidia geforce overlay"), "Overlay matching is case insensitive");
+Check(!WindowTargetPolicy.IsKnownOverlay("chrome", "NVIDIA GeForce Overlay"), "Do not exclude browser pages by title alone");
+Check(!WindowTargetPolicy.IsKnownOverlay("NVIDIA Share", "Settings"), "Do not blacklist entire process");
+Check(!WindowTargetPolicy.IsKnownOverlay("NVIDIA Control Panel", "NVIDIA Control Panel"), "Keep ordinary NVIDIA settings windows");
+Check(WindowTargetPolicy.IsAuxiliaryWindow(0x80), "Exclude floating tool windows");
+Check(WindowTargetPolicy.IsAuxiliaryWindow(0x08000000), "Exclude non-activating surfaces");
+Check(!WindowTargetPolicy.IsAuxiliaryWindow(0x00040080), "Explicit app window remains selectable");
+Check(!WindowTargetPolicy.IsAuxiliaryWindow(0x00080028), "Topmost/layered/transparent alone are not grounds to exclude an app");
+Console.WriteLine("PASS: NVIDIA overlay, auxiliary styles, ordinary apps and title collisions");

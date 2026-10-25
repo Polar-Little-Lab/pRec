@@ -1,6 +1,6 @@
 using System;
 namespace PolarRecorder.Services;
-// Filter window classes, never process names: explorer.exe also owns normal folder windows.
+// Do not block a whole vendor or explorer.exe: normal windows must stay selectable.
 public static class WindowTargetPolicy
 {
     public static bool IsShellSurface(string windowClass) =>
@@ -8,6 +8,15 @@ public static class WindowTargetPolicy
         windowClass.Equals("WorkerW", StringComparison.OrdinalIgnoreCase) ||
         windowClass.Equals("Shell_TrayWnd", StringComparison.OrdinalIgnoreCase) ||
         windowClass.Equals("Shell_SecondaryTrayWnd", StringComparison.OrdinalIgnoreCase);
+    public static bool IsAuxiliaryWindow(long extendedStyle) =>
+        (extendedStyle & 0x08000000L) != 0 || // WS_EX_NOACTIVATE
+        ((extendedStyle & 0x00000080L) != 0 && (extendedStyle & 0x00040000L) == 0); // TOOLWINDOW without APPWINDOW
+    public static bool IsKnownOverlay(string processName, string title) =>
+        (processName.Equals("NVIDIA Share", StringComparison.OrdinalIgnoreCase) ||
+         processName.Equals("NVIDIA Overlay", StringComparison.OrdinalIgnoreCase)) &&
+        (title.Equals("NVIDIA GeForce Overlay", StringComparison.OrdinalIgnoreCase) ||
+         title.Equals("NVIDIA Overlay", StringComparison.OrdinalIgnoreCase));
+    public const string OverlayMessage = "선택한 항목은 오버레이 또는 보조 창입니다. 창 목록을 갱신하고 브라우저·메모장 같은 일반 앱 창을 선택하세요.";
     public const string ShellMessage = "바탕화면과 작업 표시줄은 창 녹화 대상으로 선택할 수 없습니다. 바탕화면을 담으려면 전체 화면 또는 선택 영역을 이용하세요.";
     public static string CaptureFailure(Exception error)
     {

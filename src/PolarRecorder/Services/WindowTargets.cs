@@ -18,6 +18,9 @@ public static class WindowTargets
     [DllImport("user32.dll")] private static extern IntPtr GetShellWindow();
     [DllImport("user32.dll")] private static extern IntPtr GetDesktopWindow();
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr window, StringBuilder text, int count);
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")] private static extern IntPtr GetWindowLongPtr64(IntPtr window, int index);
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongW")] private static extern int GetWindowLong32(IntPtr window, int index);
+    private static long ExtendedStyle(IntPtr window) => Environment.Is64BitProcess ? GetWindowLongPtr64(window, -20).ToInt64() : GetWindowLong32(window, -20);
     [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr window);
     [DllImport("user32.dll")] private static extern bool IsIconic(IntPtr window);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetWindowText(IntPtr window, StringBuilder text, int count);
@@ -37,7 +40,7 @@ public static class WindowTargets
     {
         var items = new List<WindowTarget>();
         EnumWindows((h, _) => {
-            if (!IsWindowVisible(h) || IsIconic(h) || IsShellSurface(h)) return true;
+            if (!IsWindowVisible(h) || IsIconic(h) || IsShellSurface(h) || WindowTargetPolicy.IsAuxiliaryWindow(ExtendedStyle(h))) return true;
             GetWindowThreadProcessId(h, out uint pid);
             if (pid == Environment.ProcessId) return true;
             if (DwmGetWindowAttribute(h, 14, out int cloaked, 4) == 0 && cloaked != 0) return true;
@@ -57,11 +60,17 @@ public static class WindowTargets
         var h = new IntPtr(target.Handle);
         if (!IsWindow(h)) return "선택한 창이 닫혔습니다. 창을 다시 선택하세요.";
         if (IsShellSurface(h)) return WindowTargetPolicy.ShellMessage;
+        if (WindowTargetPolicy.IsAuxiliaryWindow(ExtendedStyle(h))) return WindowTargetPolicy.OverlayMessage;
+        if (DwmGetWindowAttribute(h, 14, out int cloaked, 4) == 0 && cloaked != 0)
+            return "선택한 창이 현재 표시되지 않습니다. 창을 표시한 뒤 다시 선택하세요.";
         GetWindowThreadProcessId(h, out uint pid);
         if (pid != target.ProcessId) return "선택한 창이 변경되었습니다. 창을 다시 선택하세요.";
         try {
             using var process = Process.GetProcessById((int)pid);
             if (process.StartTime.ToUniversalTime().Ticks != target.ProcessStarted) return "선택한 앱이 다시 실행되었습니다. 창을 다시 선택하세요.";
+            var currentTitle = new StringBuilder(1024);
+            GetWindowText(h, currentTitle, currentTitle.Capacity);
+            if (WindowTargetPolicy.IsKnownOverlay(process.ProcessName, currentTitle.ToString())) return WindowTargetPolicy.OverlayMessage;
         } catch { return "선택한 앱을 확인할 수 없습니다. 창을 다시 선택하세요."; }
         if (IsIconic(h)) return "선택한 창이 최소화되었습니다. 창을 복원한 뒤 계속 녹화하세요.";
         if (!IsWindowVisible(h)) return "선택한 창이 숨겨졌습니다. 창을 다시 표시하세요.";
