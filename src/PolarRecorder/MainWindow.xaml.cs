@@ -43,7 +43,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         noticeTimer.Tick += (_, _) => {
-            if (!NoticePanel.IsMouseOver && !NoticePanel.IsKeyboardFocusWithin) HideNotice();
+            HideNotice();
         };
         Closed += (_, _) => noticeTimer.Stop();
         string videos = Environment.GetFolderPath(Environment.SpecialFolder.MyVideos);
@@ -104,7 +104,7 @@ public partial class MainWindow : Window
         NoticePanel.Visibility = Visibility.Visible;
         NoticePanel.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(180)));
         NoticeOffset.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(-16, 0, TimeSpan.FromMilliseconds(180)) { EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut } });
-        noticeTimer.Interval = TimeSpan.FromSeconds(isError ? 12 : 4); noticeTimer.Start();
+        noticeTimer.Interval = TimeSpan.FromSeconds(3); noticeTimer.Start();
     }
     private void HideNotice() { noticeTimer.Stop(); NoticePanel.Visibility = Visibility.Collapsed; }
     private void LastNoticeClick(object sender, RoutedEventArgs e) { if (lastNotice != null) Notify(lastNotice, lastNoticeIsError); }
