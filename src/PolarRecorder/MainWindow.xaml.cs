@@ -63,7 +63,10 @@ public partial class MainWindow : Window
             if (session == null) return;
             var d = session.Duration;
             ClockLabel.Text = $"{(int)d.TotalHours:00}:{d.Minutes:00}:{d.Seconds:00}";
-            if (!busy && session.CaptureFailed) await SaveAsync();
+            if (!busy && session.IsCapturing && session.TargetUnavailable is string targetReason) {
+                await TogglePauseAsync(); Notify(targetReason);
+            }
+            else if (!busy && session.CaptureFailed) await SaveAsync();
             else if (!busy && session.SegmentSeconds > 3600) {
                 await TogglePauseAsync(); Notify("60분 구간을 녹화해 자동으로 일시정지했습니다. 계속 녹화로 이어서 담을 수 있습니다.");
             }
@@ -88,7 +91,7 @@ public partial class MainWindow : Window
     {
         if (!initialized) return;
         bool engine = File.Exists(EnginePath);
-        bool validArea = RegionMode.IsChecked != true || region.HasValue;
+        bool validArea = WindowMode.IsChecked == true ? WindowTargets.Supported && WindowList.SelectedItem is WindowTarget : RegionMode.IsChecked != true || region.HasValue;
         StartButton.IsEnabled = !busy && session == null && engine && validArea;
         StartButton.Visibility = session == null && countdown == null ? Visibility.Visible : Visibility.Collapsed;
         PauseButton.Visibility = StopButton.Visibility = session == null ? Visibility.Collapsed : Visibility.Visible;
@@ -101,12 +104,16 @@ public partial class MainWindow : Window
         LastVideoButton.Visibility = lastVideo != null && session == null && !busy ? Visibility.Visible : Visibility.Collapsed;
         if (session == null && !busy && lastVideo == null) {
             if (!engine) SetState("앱 파일을 확인해 주세요", "설치 프로그램을 다시 실행하면 복구할 수 있습니다.");
-            else if (!validArea) SetState("영역을 지정해 주세요", "녹화할 부분을 마우스로 드래그하세요.");
+            else if (!validArea) SetState(WindowMode.IsChecked == true ? "녹화할 창을 선택하세요" : "영역을 지정해 주세요", WindowMode.IsChecked == true ? "창을 열고 창 목록 새로고침을 누르세요." : "녹화할 부분을 마우스로 드래그하세요.");
             else if (StatusLabel.Text != "작업을 완료하지 못했습니다") SetState("녹화 준비", "3초 준비 후 녹화를 시작합니다.");
         }
     }
     private Rectangle SelectedBounds()
     {
+        if (WindowMode.IsChecked == true) {
+            if (!WindowTargets.Supported) throw new InvalidOperationException("창 녹화는 Windows 10 1903 이상 또는 Windows 11에서 사용할 수 있습니다.");
+            return WindowTargets.GetBounds(SelectedWindow());
+        }
         var screens = Screen.AllScreens;
         if (ScreenList.SelectedIndex < 0 || ScreenList.SelectedIndex >= screens.Length) throw new InvalidOperationException("모니터 구성이 변경되었습니다. 앱을 다시 시작하세요.");
         var monitor = screens[ScreenList.SelectedIndex].Bounds;
@@ -119,14 +126,35 @@ public partial class MainWindow : Window
     {
         if (!initialized) return;
         bool custom = RegionMode.IsChecked == true;
+        bool window = WindowMode.IsChecked == true;
+        WindowPicker.Visibility = window ? Visibility.Visible : Visibility.Collapsed;
+        MonitorLabel.Visibility = ScreenList.Visibility = window ? Visibility.Collapsed : Visibility.Visible;
         SelectRegionButton.Visibility = custom ? Visibility.Visible : Visibility.Collapsed;
         SelectRegionButton.Content = region.HasValue ? "영역 다시 지정" : "영역 지정하기";
-        RegionLabel.Text = custom ? (region.HasValue ? $"{region.Value.Width} × {region.Value.Height} px · 선택됨" : "영역 지정하기를 눌러 드래그하세요.") : "선택한 모니터 전체를 녹화합니다.";
-        try { var b = SelectedBounds(); CaptureSummary.Text = $"{(custom ? "선택 영역" : "전체 화면")} · {b.Width} × {b.Height}"; } catch { CaptureSummary.Text = "아직 영역을 지정하지 않았어요"; }
-        AudioSummary.Text = $"PC 소리 {(SystemAudio.IsChecked == true ? "켜짐" : "꺼짐")} · 마이크 {(MicAudio.IsChecked == true ? "켜짐" : "꺼짐")}";
+        RegionLabel.Text = window ? "선택한 창에만 연결됩니다. 다른 창이나 전체 화면으로 자동 전환하지 않습니다." : custom ? (region.HasValue ? $"{region.Value.Width} × {region.Value.Height} px · 선택됨" : "영역 지정하기를 눌러 드래그하세요.") : "선택한 모니터 전체를 녹화합니다.";
+        try { var b = SelectedBounds(); CaptureSummary.Text = $"{(window ? "선택한 창" : custom ? "선택 영역" : "전체 화면")} · {b.Width} × {b.Height}"; } catch { CaptureSummary.Text = window ? "아직 창을 선택하지 않았어요" : "아직 영역을 지정하지 않았어요"; }
+        AudioSummary.Text = $"PC 전체 소리 {(SystemAudio.IsChecked == true ? "켜짐" : "꺼짐")} · 마이크 {(MicAudio.IsChecked == true ? "켜짐" : "꺼짐")}";
     }
     private void InvalidatePreview() { if (!initialized) return; PreviewImage.Source = null; PreviewPlaceholder.Visibility = Visibility.Visible; }
-    private void CaptureModeChanged(object sender, RoutedEventArgs e) { if (!initialized) return; InvalidatePreview(); UpdateSummary(); SetControls(); }
+    private void CaptureModeChanged(object sender, RoutedEventArgs e) {
+        if (!initialized) return;
+        if (WindowMode.IsChecked == true) {
+            SystemAudio.IsChecked = false;
+            RefreshWindows();
+            Notify("창 영상만 선택됩니다. PC 전체 소리는 기본으로 껐습니다. 필요하면 직접 켜세요. 최소화 시 일시정지하며 창을 복원한 뒤 계속 녹화할 수 있습니다.");
+        }
+        InvalidatePreview(); UpdateSummary(); SetControls();
+    }
+    private WindowTarget SelectedWindow() => WindowList.SelectedItem as WindowTarget ?? throw new InvalidOperationException("먼저 녹화할 창을 선택하세요.");
+    private void RefreshWindows() {
+        var previous = WindowList.SelectedItem as WindowTarget;
+        var items = WindowTargets.List();
+        WindowList.ItemsSource = items;
+        WindowList.SelectedItem = items.FirstOrDefault(x => x.Handle == previous?.Handle && x.ProcessStarted == previous.ProcessStarted);
+        if (items.Count == 0) Notify("선택 가능한 창이 없습니다. 앱 또는 브라우저 창을 열고 최소화를 해제한 뒤 새로고침하세요.");
+    }
+    private void RefreshWindowsClick(object sender, RoutedEventArgs e) { if (!busy && session == null) { RefreshWindows(); UpdateSummary(); SetControls(); } }
+    private void WindowSelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e) { if (initialized) { InvalidatePreview(); UpdateSummary(); SetControls(); } }
     private void OptionChanged(object sender, RoutedEventArgs e) { if (initialized) { UpdateSummary(); TryPersist(); } }
     private void RestoreWindow() { Show(); WindowState = WindowState.Normal; Activate(); }
     private async Task StartAsync()
@@ -134,7 +162,7 @@ public partial class MainWindow : Window
         if (busy || session != null) return;
         busy = true; lastVideo = null; SetControls();
         try {
-            if (!File.Exists(EnginePath)) { ShowPage("settings"); throw new FileNotFoundException("앱 구성 파일이 누락되었습니다. 받은 ZIP 전체를 새 폴더에 압축 해제하고 실행해 주세요."); }
+            if (!File.Exists(EnginePath)) { ShowPage("settings"); throw new FileNotFoundException("앱 구성 파일이 누락되었습니다. 설치 프로그램을 다시 실행해 주세요."); }
             Rectangle bounds = SelectedBounds();
             Directory.CreateDirectory(FolderBox.Text);
             string probe = Path.Combine(FolderBox.Text, ".polar-write-" + Guid.NewGuid().ToString("N")); File.WriteAllText(probe, ""); File.Delete(probe);
@@ -144,7 +172,7 @@ public partial class MainWindow : Window
                 try { for (int n = 3; n > 0; n--) { SetState($"{n}초 후 시작", "준비가 안 됐다면 Esc 또는 시작 취소를 누르세요."); await Task.Delay(1000, cts.Token); } }
                 finally { countdown = null; }
             }
-            session = new RecordingSession(new RecordingOptions(EnginePath, FolderBox.Text, bounds, SystemAudio.IsChecked == true, MicAudio.IsChecked == true, CursorOption.IsChecked == true));
+            session = new RecordingSession(new RecordingOptions(EnginePath, FolderBox.Text, bounds, SystemAudio.IsChecked == true, MicAudio.IsChecked == true, CursorOption.IsChecked == true, WindowMode.IsChecked == true ? SelectedWindow() : null));
             SetState("녹화를 시작하는 중", "잠시만 기다려 주세요."); SetControls();
             WindowState = WindowState.Minimized; await Task.Delay(300); await session.ResumeAsync();
             SetState("녹화 중", "Ctrl + Shift + F9 저장 · Ctrl + Shift + F10 일시정지", "#B84242");
@@ -196,7 +224,19 @@ public partial class MainWindow : Window
         if (busy || session != null) return;
         busy = true; SetControls();
         try {
-            Rectangle b = SelectedBounds(); Hide(); await Task.Delay(180);
+            Rectangle b = SelectedBounds();
+            if (WindowMode.IsChecked == true) {
+                string temp = Path.Combine(Path.GetTempPath(), "PolarRec-preview-" + Guid.NewGuid().ToString("N"));
+                Directory.CreateDirectory(temp);
+                try {
+                    string file = Path.Combine(temp, "preview.png");
+                    await Ffmpeg.RunAsync(EnginePath, new[] { "-hide_banner", "-y", "-filter_complex", CaptureArguments.WindowFilter(SelectedWindow().Handle, b, CursorOption.IsChecked == true), "-frames:v", "1", "-threads", "1", file }, Path.Combine(temp, "preview.log"), TimeSpan.FromSeconds(12));
+                    var image = new BitmapImage(); image.BeginInit(); image.CacheOption = BitmapCacheOption.OnLoad; image.UriSource = new Uri(file); image.EndInit(); image.Freeze();
+                    PreviewImage.Source = image; PreviewPlaceholder.Visibility = Visibility.Collapsed;
+                } finally { try { Directory.Delete(temp, true); } catch (IOException) { } }
+                return;
+            }
+            Hide(); await Task.Delay(180);
             using var bitmap = new System.Drawing.Bitmap(b.Width, b.Height);
             using (var graphics = System.Drawing.Graphics.FromImage(bitmap)) graphics.CopyFromScreen(b.Location, System.Drawing.Point.Empty, b.Size);
             IntPtr handle = bitmap.GetHbitmap();
@@ -213,7 +253,7 @@ public partial class MainWindow : Window
     }
     private void RepairHelpClick(object sender, RoutedEventArgs e)
     {
-        Notify("받은 ZIP을 새 폴더에 모두 압축 해제한 후 앱을 실행해 주세요. exe 파일만 이동하면 녹화할 수 없습니다. 보안 프로그램이 파일을 격리했다면 격리 내역을 확인하고, 회사 PC에서는 담당자에게 문의해 주세요.");
+        Notify("설치 프로그램을 다시 실행해 주세요. 구성 파일은 자동으로 복구되며 FFmpeg 경로를 지정할 필요가 없습니다. 보안 프로그램이 파일을 격리했다면 격리 내역을 확인하고, 회사 PC에서는 담당자에게 문의해 주세요.");
     }
     private void OpenPath(string path) { try { Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }); } catch (Exception ex) { ShowError(ex, null); } }
     private void OpenFolderClick(object sender, RoutedEventArgs e) { try { Directory.CreateDirectory(FolderBox.Text); OpenPath(FolderBox.Text); } catch (Exception ex) { ShowError(ex, null); } }

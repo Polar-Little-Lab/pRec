@@ -8,7 +8,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 namespace PolarRecorder.Services;
-public sealed record RecordingOptions(string Ffmpeg, string Folder, Rectangle Region, bool PcAudio, bool Microphone, bool Cursor);
+public sealed record RecordingOptions(string Ffmpeg, string Folder, Rectangle Region, bool PcAudio, bool Microphone, bool Cursor, WindowTarget? Window = null);
 public sealed class RecordingSession
 {
     private readonly RecordingOptions options;
@@ -25,6 +25,7 @@ public sealed class RecordingSession
     public TimeSpan Duration => TimeSpan.FromSeconds(totalSeconds + clock.Elapsed.TotalSeconds);
     public bool IsCapturing => video != null;
     public bool CaptureFailed => video?.HasExited == true || audio.Any(track => track.HasFailed);
+    public string? TargetUnavailable => options.Window == null ? null : WindowTargets.UnavailableReason(options.Window);
     public double SegmentSeconds => clock.Elapsed.TotalSeconds;
     public RecordingSession(RecordingOptions options)
     {
@@ -36,6 +37,7 @@ public sealed class RecordingSession
     public async Task ResumeAsync()
     {
         if (video != null) throw new InvalidOperationException("이미 녹화 중입니다.");
+        if (TargetUnavailable is string reason) throw new InvalidOperationException(reason);
         var region = options.Region;
         string prefix = Path.Combine(WorkDirectory, $"{nextCaptureId++:D4}");
         rawVideo = prefix + "-video.mkv";
@@ -46,11 +48,7 @@ public sealed class RecordingSession
             // Launch clock and audio together. gdigrab's first-frame startup latency must be validated on hardware.
             clock.Start();
             foreach (var track in audio) track.Start();
-            video = new Ffmpeg(options.Ffmpeg, new[] { "-hide_banner", "-y", "-progress", "pipe:1", "-stats_period", "0.1",
-                "-f", "gdigrab", "-framerate", "30", "-draw_mouse", options.Cursor ? "1" : "0",
-                "-offset_x", region.X.ToString(CultureInfo.InvariantCulture), "-offset_y", region.Y.ToString(CultureInfo.InvariantCulture),
-                "-video_size", $"{region.Width}x{region.Height}", "-i", "desktop", "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
-                "-pix_fmt", "yuv420p", "-r", "30", rawVideo }, Path.Combine(WorkDirectory, "ffmpeg.log"));
+            video = new Ffmpeg(options.Ffmpeg, CaptureArguments.Video(region, options.Cursor, options.Window?.Handle, rawVideo), Path.Combine(WorkDirectory, "ffmpeg.log"));
             await video.WaitForFramesAsync();
         } catch {
             preserveWork = true;
@@ -73,7 +71,12 @@ public sealed class RecordingSession
         string segment = Path.Combine(WorkDirectory, $"segment-{segments.Count:D4}.mp4");
         var args = new List<string> { "-hide_banner", "-y", "-i", rawVideo };
         foreach (string path in audioFiles) args.AddRange(new[] { "-i", path });
-        args.AddRange(new[] { "-map", "0:v:0", "-c:v", "copy" });
+        args.AddRange(new[] { "-map", "0:v:0" });
+        if (options.Window != null) {
+            // WGC sends frames when content changes. Preserve still time at the end of a segment.
+            string duration = Math.Max(0.04, seconds).ToString("0.######", CultureInfo.InvariantCulture);
+            args.AddRange(new[] { "-vf", $"tpad=stop_mode=clone:stop_duration={duration},trim=duration={duration},setpts=PTS-STARTPTS,fps=30", "-c:v", "libx264", "-preset", "veryfast", "-crf", "22", "-pix_fmt", "yuv420p" });
+        } else args.AddRange(new[] { "-c:v", "copy" });
         if (audioFiles.Count > 0) {
             string inputs = string.Concat(Enumerable.Range(1, audioFiles.Count).Select(i => $"[{i}:a]"));
             string filter = audioFiles.Count == 1 ? "[1:a]apad[a]" : inputs + "amix=inputs=2:duration=longest:normalize=1,apad[a]";

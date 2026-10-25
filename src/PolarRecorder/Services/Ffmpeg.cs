@@ -58,6 +58,6 @@ public sealed class Ffmpeg : IDisposable
         if (!process.HasExited) { process.Kill(true); process.WaitForExit(); }
         process.Dispose(); log.Dispose();
     }
-    public static async Task RunAsync(string exe, string[] args, string log)
-    { using var runner = new Ffmpeg(exe, args, log); await runner.CompleteAsync(); }
+    public static async Task RunAsync(string exe, string[] args, string log, TimeSpan? timeout = null)
+    { using var runner = new Ffmpeg(exe, args, log); if (timeout.HasValue) await runner.CompleteAsync().WaitAsync(timeout.Value); else await runner.CompleteAsync(); }
 }
