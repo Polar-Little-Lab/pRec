@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType><TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF><UseWindowsForms>true</UseWindowsForms><EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <Nullable>enable</Nullable><ImplicitUsings>disable</ImplicitUsings><ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- WPF owns the entry point; per-monitor DPI is intentionally declared in app.manifest. -->
+    <NoWarn>$(NoWarn);WFAC010</NoWarn>
+    <ApplicationIcon>Assets/PolarRecorder.ico</ApplicationIcon>
+    <AssemblyName>PolarRec</AssemblyName><RootNamespace>PolarRecorder</RootNamespace><Product>PolarRec · 폴라렉</Product><Version>0.3.3</Version>
+  </PropertyGroup>
+  <ItemGroup><PackageReference Include="NAudio" Version="2.2.1" /></ItemGroup>
+  <ItemGroup><Resource Include="Assets/PolarRecorder.ico"/><Resource Include="Assets/PolarRecorder.png"/></ItemGroup>
+</Project>
