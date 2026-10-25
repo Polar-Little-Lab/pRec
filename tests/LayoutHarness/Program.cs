@@ -34,12 +34,17 @@ internal static class Program
                 if (Math.Abs(lb-rb) > 1) throw new Exception($"Card row {i} bottoms differ: {lb} / {rb}");
             }
             var scroll = Find<ScrollViewer>("RecordPage");
-            if (size.Width == 984 && scroll.ScrollableHeight > 1)
-                throw new Exception($"Default size clips controls: overflow {scroll.ScrollableHeight}, viewport {scroll.ViewportHeight}");
+            foreach (string name in new[] { "SettingsPanel", "FullScreen", "WindowMode", "WindowPicker", "RegionLabel", "SystemAudio", "MicAudio", "CursorOption", "PreviewPlaceholder" }) {
+                var element = Find<FrameworkElement>(name);
+                Console.WriteLine($"METRIC {name}: actual={element.ActualWidth}x{element.ActualHeight} desired={element.DesiredSize}");
+            }
+            for (int i = 0; i < 4; i++) Console.WriteLine($"CARD {i}: {((FrameworkElement)cards.Children[i]).ActualHeight}");
             var bitmap = new RenderTargetBitmap((int)size.Width, (int)size.Height, 96, 96, PixelFormats.Pbgra32);
             bitmap.Render(root);
             var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
             using var file = File.Create($"layout-checks/window-{size.Width}.png"); encoder.Save(file);
+            if (size.Width == 984 && scroll.ScrollableHeight > 1)
+                throw new Exception($"Default size clips controls: overflow {scroll.ScrollableHeight}, viewport {scroll.ViewportHeight}");
             Console.WriteLine($"PASS: WPF layout {size.Width}x{size.Height}, card bottoms aligned, scroll overflow {scroll.ScrollableHeight}");
         }
         app.Shutdown();
