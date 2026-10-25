@@ -6,10 +6,10 @@
   </DockPanel></Border>
   <Grid Grid.Row="1" Margin="24,20,24,16">
    <ScrollViewer FocusVisualStyle="{x:Null}" x:Name="RecordPage" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-    <Grid Grid.IsSharedSizeScope="True">
+    <Grid x:Name="SettingsPanel">
+     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
      <Grid.ColumnDefinitions><ColumnDefinition Width="350"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-     <Grid x:Name="SettingsPanel">
-      <Grid.RowDefinitions><RowDefinition Height="Auto" SharedSizeGroup="CaptureRow"/><RowDefinition Height="Auto" SharedSizeGroup="OptionsRow"/></Grid.RowDefinitions>
+
       <Border Style="{StaticResource Panel}">
        <StackPanel>
         <TextBlock Text="녹화할 화면" Style="{StaticResource SectionTitle}"/>
@@ -41,10 +41,7 @@
         <TextBlock Text="PC 소리는 다른 앱의 소리도 포함합니다. 마이크는 Windows 기본 장치를 사용합니다." Style="{StaticResource Muted}" FontSize="11" Margin="0,10,0,0"/>
        </StackPanel>
       </Border>
-     </Grid>
-     <Grid Grid.Column="2">
-      <Grid.RowDefinitions><RowDefinition Height="Auto" SharedSizeGroup="CaptureRow"/><RowDefinition Height="Auto" SharedSizeGroup="OptionsRow"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-      <Border Style="{StaticResource Panel}">
+      <Border Grid.Column="2" Style="{StaticResource Panel}">
        <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
         <Grid Margin="0,0,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
          <TextBlock Text="미리보기" Style="{StaticResource SectionTitle}" Margin="0" VerticalAlignment="Center"/>
@@ -56,15 +53,14 @@
         <StackPanel Grid.Row="2" Margin="0,12,0,0"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock x:Name="CaptureSummary" Text="전체 화면" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Grid.Column="1" Text="MP4 · 30 FPS" Margin="8,0,0,0" Foreground="{StaticResource MutedBrush}" FontSize="11"/></Grid><TextBlock x:Name="AudioSummary" Text="PC 소리 켜짐 · 마이크 꺼짐" Style="{StaticResource Muted}" FontSize="11" Margin="0,5,0,0"/></StackPanel>
        </Grid>
       </Border>
-      <Border Grid.Row="1" Style="{StaticResource Panel}" Margin="0,12,0,0">
+      <Border Grid.Column="2" Grid.Row="1" Style="{StaticResource Panel}" Margin="0,12,0,0">
        <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
         <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="저장 위치" FontWeight="SemiBold" VerticalAlignment="Center"/><Button x:Name="FolderButton" Grid.Column="1" Content="변경" Click="FolderClick" MinHeight="28" Padding="9,3" FontSize="11"/></Grid>
         <TextBlock Grid.Row="1" x:Name="FolderLabel" TextTrimming="CharacterEllipsis" Foreground="{StaticResource InkBrush}" Margin="0,12,0,12" VerticalAlignment="Center" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
         <TextBlock Grid.Row="2" Text="녹화를 마치면 MP4로 저장합니다.&#10;파일 이름은 날짜와 시간으로 자동 생성됩니다." Style="{StaticResource Muted}" FontSize="11"/>
        </Grid>
       </Border>
-      <Border Grid.Row="2" x:Name="SetupBanner" Background="{StaticResource IceBrush}" CornerRadius="8" Padding="14" Margin="0,12,0,0"><DockPanel><Button Content="복구 안내" Click="RepairHelpClick" DockPanel.Dock="Right" MinHeight="30" FontSize="11" Padding="10,5" Margin="12,0,0,0"/><StackPanel><TextBlock Text="앱 파일을 확인해 주세요" FontWeight="SemiBold"/><TextBlock Text="구성 파일이 누락되어 녹화를 시작할 수 없어요." Style="{StaticResource Muted}" FontSize="11" Margin="0,4,0,0"/></StackPanel></DockPanel></Border>
-     </Grid>
+      <Border Grid.Column="2" Grid.Row="2" x:Name="SetupBanner" Background="{StaticResource IceBrush}" CornerRadius="8" Padding="14" Margin="0,12,0,0"><DockPanel><Button Content="복구 안내" Click="RepairHelpClick" DockPanel.Dock="Right" MinHeight="30" FontSize="11" Padding="10,5" Margin="12,0,0,0"/><StackPanel><TextBlock Text="앱 파일을 확인해 주세요" FontWeight="SemiBold"/><TextBlock Text="구성 파일이 누락되어 녹화를 시작할 수 없어요." Style="{StaticResource Muted}" FontSize="11" Margin="0,4,0,0"/></StackPanel></DockPanel></Border>
     </Grid>
    </ScrollViewer>
    <Grid x:Name="LibraryPage" Visibility="Collapsed"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><DockPanel Margin="0,0,0,18"><StackPanel><TextBlock Text="내 녹화" FontSize="22" FontWeight="SemiBold"/><TextBlock Text="현재 저장 폴더의 최근 영상 50개" Style="{StaticResource Muted}" Margin="0,6,0,0"/></StackPanel><Button Content="저장 폴더 열기" Click="OpenFolderClick" HorizontalAlignment="Right"/></DockPanel><Border Grid.Row="1" Style="{StaticResource Panel}"><Grid><StackPanel x:Name="EmptyLibrary" HorizontalAlignment="Center" VerticalAlignment="Center"><TextBlock Text="아직 저장된 영상이 없어요" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center"/><TextBlock Text="첫 녹화를 저장하면 여기에서 바로 열 수 있습니다." Style="{StaticResource Muted}" Margin="0,10,0,20"/><Button Content="녹화하러 가기" Click="RecordNavClick" HorizontalAlignment="Center"/></StackPanel><ListBox x:Name="RecordingsList" BorderThickness="0" Background="Transparent" HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled" MouseDoubleClick="RecordingDoubleClick" KeyDown="RecordingKeyDown" AutomationProperties.Name="저장된 녹화 영상"><ListBox.ItemTemplate><DataTemplate><Border Padding="12,16" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1"><Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="80"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding Detail}" Style="{StaticResource Muted}" Margin="0,5,0,0"/></StackPanel><Button Grid.Column="1" Content="열기" Click="OpenRecordingClick" Tag="{Binding Path}"/></Grid></Border></DataTemplate></ListBox.ItemTemplate></ListBox></Grid></Border></Grid>

@@ -25,11 +25,10 @@ internal static class Program
             root.Measure(size); root.Arrange(new Rect(size)); root.UpdateLayout();
             // Shared-size rows settle through another WPF layout pass.
             root.Measure(size); root.Arrange(new Rect(size)); root.UpdateLayout();
-            var left = Find<Grid>("SettingsPanel");
-            var outer = (Grid)left.Parent;
-            var right = (Grid)outer.Children[1];
+            var cards = Find<Grid>("SettingsPanel");
             for (int i = 0; i < 2; i++) {
-                var l = (Border)left.Children[i]; var r = (Border)right.Children[i];
+                var l = (Border)cards.Children[i]; var r = (Border)cards.Children[i+2];
+                if (l.ActualHeight <= 0 || r.ActualHeight <= 0) throw new Exception("Cards must be laid out");
                 double lb = l.TranslatePoint(new Point(0, l.ActualHeight), root).Y;
                 double rb = r.TranslatePoint(new Point(0, r.ActualHeight), root).Y;
                 if (Math.Abs(lb-rb) > 1) throw new Exception($"Card row {i} bottoms differ: {lb} / {rb}");
