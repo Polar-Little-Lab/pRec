@@ -16,3 +16,12 @@ Check(desktop.Contains("desktop") && desktop.Contains("-1920") && !desktop.Conta
 foreach (var h in new long[] {0, -1}) { try { CaptureArguments.WindowFilter(h,size,true); throw new Exception("Invalid HWND accepted"); } catch(ArgumentException) {} }
 try { CaptureArguments.WindowFilter(1,new Rectangle(0,0,1279,719),true); throw new Exception("Odd canvas accepted"); } catch(ArgumentException) {}
 Console.WriteLine("PASS: exact window binding, no desktop fallback, resize canvas, cursor, locale, negative monitor offsets, invalid targets");
+
+foreach (var shell in new[] { "Progman", "WorkerW", "Shell_TrayWnd", "Shell_SecondaryTrayWnd", "progman" })
+    Check(WindowTargetPolicy.IsShellSurface(shell), "Shell surface must be excluded: " + shell);
+foreach (var app in new[] { "CabinetWClass", "ExploreWClass", "Chrome_WidgetWin_1", "Notepad", "ApplicationFrameWindow" })
+    Check(!WindowTargetPolicy.IsShellSurface(app), "Normal app/Explorer window must remain selectable: " + app);
+string message = WindowTargetPolicy.CaptureFailure(new IOException("Stream mapping: format -> png\nFailed to setup graphics capture for window (0x80070057)"));
+Check(message.Contains("0x80070057") && message.Contains("전체 화면") && !message.Contains("Stream mapping"), "Actionable error, not raw FFmpeg output");
+Check(WindowTargetPolicy.CaptureFailure(new TimeoutException()).Contains("미리보기"), "Timeout guidance");
+Console.WriteLine("PASS: shell filtering, normal Explorer/browser retention, friendly capture errors");

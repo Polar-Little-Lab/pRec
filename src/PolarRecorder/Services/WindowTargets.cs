@@ -15,6 +15,9 @@ public static class WindowTargets
     private delegate bool EnumProc(IntPtr window, IntPtr data);
     [DllImport("user32.dll")] private static extern bool EnumWindows(EnumProc callback, IntPtr data);
     [DllImport("user32.dll")] private static extern bool IsWindow(IntPtr window);
+    [DllImport("user32.dll")] private static extern IntPtr GetShellWindow();
+    [DllImport("user32.dll")] private static extern IntPtr GetDesktopWindow();
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr window, StringBuilder text, int count);
     [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr window);
     [DllImport("user32.dll")] private static extern bool IsIconic(IntPtr window);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetWindowText(IntPtr window, StringBuilder text, int count);
@@ -22,12 +25,19 @@ public static class WindowTargets
     [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr window, out Rect rect);
     [DllImport("dwmapi.dll")] private static extern int DwmGetWindowAttribute(IntPtr window, int attribute, out int value, int size);
     [StructLayout(LayoutKind.Sequential)] private struct Rect { public int Left, Top, Right, Bottom; }
+    private static bool IsShellSurface(IntPtr window)
+    {
+        if (window == GetShellWindow() || window == GetDesktopWindow()) return true;
+        var name = new StringBuilder(256);
+        GetClassName(window, name, name.Capacity);
+        return WindowTargetPolicy.IsShellSurface(name.ToString());
+    }
     public static bool Supported => OperatingSystem.IsWindowsVersionAtLeast(10, 0, 18362);
     public static IReadOnlyList<WindowTarget> List()
     {
         var items = new List<WindowTarget>();
         EnumWindows((h, _) => {
-            if (!IsWindowVisible(h) || IsIconic(h)) return true;
+            if (!IsWindowVisible(h) || IsIconic(h) || IsShellSurface(h)) return true;
             GetWindowThreadProcessId(h, out uint pid);
             if (pid == Environment.ProcessId) return true;
             if (DwmGetWindowAttribute(h, 14, out int cloaked, 4) == 0 && cloaked != 0) return true;
@@ -46,6 +56,7 @@ public static class WindowTargets
     {
         var h = new IntPtr(target.Handle);
         if (!IsWindow(h)) return "선택한 창이 닫혔습니다. 창을 다시 선택하세요.";
+        if (IsShellSurface(h)) return WindowTargetPolicy.ShellMessage;
         GetWindowThreadProcessId(h, out uint pid);
         if (pid != target.ProcessId) return "선택한 창이 변경되었습니다. 창을 다시 선택하세요.";
         try {

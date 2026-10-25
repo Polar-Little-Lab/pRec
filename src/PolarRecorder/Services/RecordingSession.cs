@@ -51,7 +51,7 @@ public sealed class RecordingSession
             video = new Ffmpeg(options.Ffmpeg, CaptureArguments.Video(region, options.Cursor, options.Window?.Handle, rawVideo), Path.Combine(WorkDirectory, "ffmpeg.log"));
             try { await video.WaitForFramesAsync(); }
             catch (Exception ex) when (options.Window != null) {
-                throw new InvalidOperationException("선택한 창의 캡처를 시작하지 못했습니다. 창이 열려 있고 최소화되지 않았는지 확인하세요. Windows 창 캡처·D3D11 그래픽 장치를 사용할 수 없거나 보호된 콘텐츠일 수 있습니다. 다른 화면은 녹화하지 않습니다.\n" + ex.Message, ex);
+                throw new InvalidOperationException(WindowTargetPolicy.CaptureFailure(ex), ex);
             }
         } catch {
             preserveWork = true;

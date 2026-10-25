@@ -233,7 +233,19 @@ public partial class MainWindow : Window
                     await Ffmpeg.RunAsync(EnginePath, new[] { "-hide_banner", "-y", "-filter_complex", CaptureArguments.WindowFilter(SelectedWindow().Handle, b, CursorOption.IsChecked == true), "-frames:v", "1", "-threads", "1", file }, Path.Combine(temp, "preview.log"), TimeSpan.FromSeconds(12));
                     var image = new BitmapImage(); image.BeginInit(); image.CacheOption = BitmapCacheOption.OnLoad; image.UriSource = new Uri(file); image.EndInit(); image.Freeze();
                     PreviewImage.Source = image; PreviewPlaceholder.Visibility = Visibility.Collapsed;
-                } finally { try { Directory.Delete(temp, true); } catch (IOException) { } }
+                } catch (Exception ex) when (ex is IOException or InvalidOperationException or TimeoutException) {
+                    string diagnostic = "";
+                    try {
+                        string logs = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PolarRec", "Logs");
+                        Directory.CreateDirectory(logs);
+                        string destination = Path.Combine(logs, "preview-" + Guid.NewGuid().ToString("N") + ".log");
+                        if (File.Exists(Path.Combine(temp, "preview.log"))) {
+                            File.Copy(Path.Combine(temp, "preview.log"), destination);
+                            diagnostic = "\n진단 로그: " + destination;
+                        }
+                    } catch (Exception logError) when (logError is IOException or UnauthorizedAccessException) { }
+                    throw new InvalidOperationException(WindowTargetPolicy.CaptureFailure(ex) + diagnostic, ex);
+                } finally { try { Directory.Delete(temp, true); } catch (Exception cleanupError) when (cleanupError is IOException or UnauthorizedAccessException) { } }
                 return;
             }
             Hide(); await Task.Delay(180);
