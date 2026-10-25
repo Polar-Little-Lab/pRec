@@ -7,19 +7,24 @@ using System.Windows.Media.Imaging;
 using PolarRecorder;
 internal static class Program
 {
-    [STAThread] static void Main()
+    [STAThread] static void Main(string[] args)
     {
+        if (args.Length != 1 || !File.Exists(args[0])) throw new Exception("Pass the bundled FFmpeg path");
+        Directory.CreateDirectory(Path.Combine(AppContext.BaseDirectory, "tools"));
+        File.Copy(args[0], Path.Combine(AppContext.BaseDirectory, "tools", "ffmpeg.exe"), true);
         var app = new App(); app.InitializeComponent();
         var window = new MainWindow();
-        var root = (FrameworkElement)window.Content;
+        var root = (Grid)window.Content;
+        root.Background = window.Background;
         T Find<T>(string name) where T : FrameworkElement => (T)window.FindName(name);
         // Exercise the actual WPF view without screen capture or a graphics capture device.
         Find<RadioButton>("WindowMode").IsChecked = true;
         Find<Border>("NoticePanel").Visibility = Visibility.Collapsed;
         Find<Border>("SetupBanner").Visibility = Visibility.Collapsed;
         Find<TextBlock>("FolderLabel").Text = @"C:\Users\Polar\Videos\PolarRec";
-        Find<ComboBox>("WindowList").ItemsSource = new[] { "chrome · 녹화할 브라우저 창" };
+        Find<ComboBox>("WindowList").ItemsSource = new[] { new PolarRecorder.Services.WindowTarget(0, 0, 0, "예시 브라우저 창", "chrome") };
         Find<ComboBox>("WindowList").SelectedIndex = 0;
+        Find<TextBlock>("CaptureSummary").Text = "예시 창 · 1920 × 1080";
         Directory.CreateDirectory("layout-checks");
         foreach (var size in new[] { new Size(984, 771), new Size(864, 691) }) {
             root.Measure(size); root.Arrange(new Rect(size)); root.UpdateLayout();
